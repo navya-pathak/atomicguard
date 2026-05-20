@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AtomicGuard Structural Viewer</title>
-  <script src="https://cdn.jsdelivr.net/npm/3dmol@latest/build/3Dmol-min.js"></script>
   <style>
     :root {
       --bg: #f7fbff;
@@ -87,6 +86,9 @@
         <strong>RMSD = 0.493 A</strong>.
       </p>
       <div class="row">
+        <button onclick="loadViewer()" id="loadBtn">Load 3D Viewer</button>
+      </div>
+      <div id="controlsRow" class="row" style="display: none;">
         <button onclick="showOverlay()">Overlay</button>
         <button onclick="showVaccineOnly()">Vaccine Peptide Only</button>
         <button onclick="showJo1Only()">Jo-1 Only</button>
@@ -335,10 +337,30 @@ ATOM    109  OE1 GLUA  15      -1.082  28.288 -22.838  1.00 78.93          O
 ATOM    110  OE2 GLUA  15      -2.270  26.457 -22.601  1.00 78.93          O
 END`;
 
+    function loadViewer() {
+      if (viewer) return; // Already loaded
+      
+      // Dynamically load 3Dmol.js
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/3dmol@latest/build/3Dmol-min.js";
+      script.onload = () => {
+        // Initialize viewer after 3Dmol loads
+        setTimeout(() => {
+          init();
+        }, 100);
+      };
+      document.head.appendChild(script);
+    }
+
     function init() {
       const el = document.getElementById("viewer");
       viewer = $3Dmol.createViewer(el, { backgroundColor: "white" });
       showOverlay();
+      
+      // Show control buttons
+      document.getElementById("controlsRow").style.display = "flex";
+      document.getElementById("loadBtn").style.display = "none";
+      el.style.display = "block";
     }
 
     function baseClear() {
@@ -390,8 +412,6 @@ END`;
       viewer.zoomTo();
       viewer.render();
     }
-
-    window.addEventListener("load", init);
   </script>
 </body>
 </html>
