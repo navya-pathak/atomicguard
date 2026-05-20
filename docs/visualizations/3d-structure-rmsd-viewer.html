@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AtomicGuard Structural Viewer</title>
-  <script src="https://cdn.jsdelivr.net/npm/3dmol@latest/build/3Dmol-min.js"></script>
   <style>
     :root {
       --bg: #f7fbff;
@@ -145,30 +144,36 @@
     function loadViewer() {
       if (viewerInitialized) return;
       
-      // Show spinner, hide container
+      // Show spinner
       document.getElementById("loadingSpinner").style.display = "block";
       
-      // Defer initialization to next frame for smooth animation
-      setTimeout(() => {
-        const el = document.getElementById("viewer");
-        viewer = $3Dmol.createViewer(el, { backgroundColor: "white" });
-        showOverlay();
-        
-        // Hide loading container and show viewer
-        document.getElementById("loadingContainer").style.display = "none";
-        document.getElementById("viewer").style.display = "block";
-        
-        // Enable all control buttons
-        document.getElementById("overlayBtn").disabled = false;
-        document.getElementById("vaccineBtn").disabled = false;
-        document.getElementById("jo1Btn").disabled = false;
-        document.getElementById("stickBtn").disabled = false;
-        document.getElementById("cartoonBtn").disabled = false;
-        document.getElementById("spinBtn").disabled = false;
-        document.getElementById("resetBtn").disabled = false;
-        
-        viewerInitialized = true;
-      }, 100);
+      // Dynamically load 3Dmol.js only on demand
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/3dmol@latest/build/3Dmol-min.js";
+      script.onload = () => {
+        // Initialize viewer after 3Dmol loads
+        setTimeout(() => {
+          const el = document.getElementById("viewer");
+          viewer = window.$3Dmol.createViewer(el, { backgroundColor: "white" });
+          showOverlay();
+          
+          // Hide loading container and show viewer
+          document.getElementById("loadingContainer").style.display = "none";
+          document.getElementById("viewer").style.display = "block";
+          
+          // Enable all control buttons
+          document.getElementById("overlayBtn").disabled = false;
+          document.getElementById("vaccineBtn").disabled = false;
+          document.getElementById("jo1Btn").disabled = false;
+          document.getElementById("stickBtn").disabled = false;
+          document.getElementById("cartoonBtn").disabled = false;
+          document.getElementById("spinBtn").disabled = false;
+          document.getElementById("resetBtn").disabled = false;
+          
+          viewerInitialized = true;
+        }, 100);
+      };
+      document.head.appendChild(script);
     }
 ATOM   1612  N   SER B   1       8.145  -7.122   6.354  1.00 73.50           N
 ATOM   1613  CA  SER B   1       8.843  -5.922   5.883  1.00 73.50           C
