@@ -44,33 +44,6 @@
       border: 1px solid #d9e2ec;
       border-radius: 10px;
       margin-top: 12px;
-      display: none;
-    }
-    #loadingContainer {
-      width: 100%;
-      height: 560px;
-      border: 1px solid #d9e2ec;
-      border-radius: 10px;
-      margin-top: 12px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #f5fffa, #e8f4ff);
-      gap: 16px;
-    }
-    #loadingSpinner {
-      border: 3px solid #d9e2ec;
-      border-top: 3px solid #2a9d8f;
-      border-radius: 50%;
-      width: 40px;
-      height: 40px;
-      animation: spin 0.8s linear infinite;
-      display: none;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
     }
     .row {
       display: flex;
@@ -113,7 +86,19 @@
         <strong>RMSD = 0.493 A</strong>.
       </p>
       <div class="row">
-        <button onclick="loadViewer()">Load 3D Viewer</button>
+        <button onclick="loadViewer()" id="loadBtn">Load 3D Viewer</button>
+      </div>
+      <div id="loadingSpinner" style="display: none; text-align: center; padding: 20px;">
+        <div style="border: 4px solid #f3f3f3; border-top: 4px solid #c1121f; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        <p>Loading 3D structure viewer...</p>
+      </div>
+      <style>
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      </style>
+      <div class="row" id="controlsRow" style="display: none;">
         <button onclick="showOverlay()" id="overlayBtn" disabled>Overlay</button>
         <button onclick="showVaccineOnly()" id="vaccineBtn" disabled>Vaccine Peptide Only</button>
         <button onclick="showJo1Only()" id="jo1Btn" disabled>Jo-1 Only</button>
@@ -122,11 +107,7 @@
         <button onclick="spinToggle()" id="spinBtn" disabled>Start Spin</button>
         <button onclick="resetCamera()" id="resetBtn" disabled>Reset Camera</button>
       </div>
-      <div id="loadingContainer">
-        <div id="loadingSpinner"></div>
-        <p style="color: var(--muted);">Loading 3D structure viewer...</p>
-      </div>
-      <div id="viewer"></div>
+      <div id="viewer" style="display: none;"></div>
       <div class="metric">
         <strong>Reported structural metrics:</strong>
         <span>RMSD 0.493 A</span>, <span>DeltaG -3.01 kcal/mol</span>, <span>ipTM 0.838</span>.
@@ -144,10 +125,11 @@
     function loadViewer() {
       if (viewerInitialized) return;
       
-      // Show spinner
-      document.getElementById("loadingSpinner").style.display = "block";
+      // Show loading spinner
+      const spinner = document.getElementById("loadingSpinner");
+      if (spinner) spinner.style.display = "block";
       
-      // Dynamically load 3Dmol.js only on demand
+      // Dynamically load 3Dmol.js only when user clicks
       const script = document.createElement("script");
       script.src = "https://cdn.jsdelivr.net/npm/3dmol@latest/build/3Dmol-min.js";
       script.onload = () => {
@@ -157,11 +139,12 @@
           viewer = window.$3Dmol.createViewer(el, { backgroundColor: "white" });
           showOverlay();
           
-          // Hide loading container and show viewer
-          document.getElementById("loadingContainer").style.display = "none";
-          document.getElementById("viewer").style.display = "block";
+          // Hide spinner and show viewer
+          if (spinner) spinner.style.display = "none";
+          el.style.display = "block";
+          document.getElementById("controlsRow").style.display = "flex";
           
-          // Enable all control buttons
+          // Enable control buttons
           document.getElementById("overlayBtn").disabled = false;
           document.getElementById("vaccineBtn").disabled = false;
           document.getElementById("jo1Btn").disabled = false;
@@ -175,6 +158,8 @@
       };
       document.head.appendChild(script);
     }
+
+    const vaccinePeptidePdb = `
 ATOM   1612  N   SER B   1       8.145  -7.122   6.354  1.00 73.50           N
 ATOM   1613  CA  SER B   1       8.843  -5.922   5.883  1.00 73.50           C
 ATOM   1614  C   SER B   1       7.890  -5.040   5.073  1.00 73.50           C
@@ -400,8 +385,13 @@ ATOM    109  OE1 GLUA  15      -1.082  28.288 -22.838  1.00 78.93          O
 ATOM    110  OE2 GLUA  15      -2.270  26.457 -22.601  1.00 78.93          O
 END`;
 
+    function init() {
+      const el = document.getElementById("viewer");
+      viewer = $3Dmol.createViewer(el, { backgroundColor: "white" });
+      showOverlay();
+    }
+
     function baseClear() {
-      if (!viewer) return;
       viewer.clear();
       viewer.addModel(vaccinePeptidePdb, "pdb");
       viewer.addModel(jo1Pdb, "pdb");
@@ -450,6 +440,8 @@ END`;
       viewer.zoomTo();
       viewer.render();
     }
+
+    window.addEventListener("load", init);
   </script>
 </body>
 </html>
