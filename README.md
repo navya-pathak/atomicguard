@@ -2,10 +2,6 @@
 
 This repository is a portfolio-ready, public subset of the AtomicGuard research project: a novel two-stage clinical decision engine that combines a dual-head attention transformer (1,647,367 parameters; 256D hidden; 8 attention heads) with a biomarker-anchored clinical calibration layer to detect rare vaccine-induced autoimmune adverse events — including conditions with as few as 29 historical cases — in 84,173 VAERS MMR reports spanning 1990–2024.
 
-## Demo Video
-
-- Short walkthrough (60-90s): add your demo link here
-
 ## Key Research Contributions
 
 1. **Unified 346-dimensional multimodal representation** — Structured biomarkers, patient demographics, HLA allele profiles, PROSE peptide context embeddings, and AlphaFold3-class (Boltz-2) structural features (ipTM, pLDDT, ΔG, RMSD) are fused into a single feature vector processed by an Option C dual-head attention transformer.
@@ -43,14 +39,6 @@ The result is clinically viable detection of ultra-rare events — **+19.5% AURO
 - Implemented disease-specific logic for autoimmune adverse event categories using biomarker-driven priors
 - Mapped structured patient biomarkers into a fixed feature layout used by the inference/validation pipeline
 - Created an end-to-end, reproducible demo with sanitized example input for public review
-
-## ML Demo Output (What Reviewers Can Expect)
-
-Running the demo prints:
-- Model-layer prediction and confidence
-- Clinically-adjusted final decision
-- Decision method used for adjudication
-- Human-readable explanation of why the decision was made
 
 ## Quick Start
 

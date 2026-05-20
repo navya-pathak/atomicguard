@@ -1,4 +1,4 @@
-# Assessment Brief (For ML Research Labs)
+# Assessment Brief
 
 ## One-Sentence Summary
 
