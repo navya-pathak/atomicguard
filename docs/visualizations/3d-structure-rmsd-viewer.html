@@ -53,6 +53,12 @@
       flex-wrap: wrap;
       margin: 12px 0 12px;
     }
+    .controls-grid {
+      display: grid !important;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin: 12px 0 12px;
+    }
     button {
       background: #0f4c5c;
       color: #fff;
@@ -93,7 +99,7 @@
         <button onclick="loadViewer()" id="loadBtn">Load 3D Viewer</button>
       </div>
       <div id="viewer"></div>
-      <div id="controlsRow" class="row" style="display: none;">
+      <div id="controlsRow" class="controls-grid" style="display: none;">
         <button onclick="showOverlay()">Overlay</button>
         <button onclick="showVaccineOnly()">Vaccine Peptide Only</button>
         <button onclick="showJo1Only()">Jo-1 Only</button>
@@ -362,7 +368,7 @@ END`;
       showOverlay();
       
       // Show control buttons
-      document.getElementById("controlsRow").style.display = "flex";
+      document.getElementById("controlsRow").style.display = "grid";
       document.getElementById("loadBtn").style.display = "none";
       el.style.display = "block";
     }
