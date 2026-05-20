@@ -1,0 +1,308 @@
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                      TWO-STAGE CLINICAL DECISION ENGINE ARCHITECTURE
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+
+                                        PATIENT INPUT DATA
+                                              │
+                        ┌─────────────────────┼─────────────────────┐
+                        │                     │                     │
+                   ┌─────────┐          ┌──────────┐          ┌──────────┐
+                   │Biomarkers│         │Demographics         │HLA Alleles
+                   │           │         │ (23-29)  │         │ (30-48)  │
+                   │Jo-1, CK   │         │Age, Sex  │         │30 Types  │
+                   │ESR, CRP   │         │Ethnicity │         │          │
+                   │(0-22)     │         │Comorbids │         └──────────┘
+                   └─────────┘          └──────────┘
+                        │                     │                     │
+                        └─────────────────────┴─────────────────────┘
+                                         │
+                                         ▼
+                        ┌────────────────────────────────┐
+                        │ FEATURE ENCODING (346-D)       │
+                        ├────────────────────────────────┤
+                        │ • Biomarkers (0-22)            │
+                        │ • Demographics (23-29)         │
+                        │ • HLA (30-48)                  │
+                        │ • PROSE Embeddings (49-255)    │
+                        │ • Additional BM (256-305)      │
+                        │ • AF3 Structural (306-345)     │
+                        └────────────────────────────────┘
+                                         │
+                                         ▼
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                    STAGE 1: OPTION C DUAL-HEAD ATTENTION TRANSFORMER
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+                                   Input Features (346-D)
+                                         │
+                    ┌────────────────────┴────────────────────┐
+                    │                                         │
+            ┌──────────────┐                         ┌──────────────┐
+            │  Clinical    │                         │  PROSE + HLA │
+            │  (GNN Head)  │                         │ Features     │
+            │              │                         │              │
+            │ Patient      │                         │ Peptide      │
+            │ Context      │                         │ Embeddings & │
+            │ Biomarkers   │                         │ HLA Alleles  │
+            └──────┬───────┘                         └──────┬───────┘
+                   │                                       │
+                   │                                       │
+                   ▼                                       ▼
+            ┌─────────────────┐                 ┌────────────────────┐
+            │  Multi-Head     │                 │  Multi-Head        │
+            │  Attention      │                 │  Attention         │
+            │  (8 heads)      │                 │  (8 heads)         │
+            │  Hidden: 256D   │                 │  Hidden: 256D      │
+            └────────┬────────┘                 └────────┬───────────┘
+                     │                                  │
+                     │                                  │
+                     ▼                                  ▼
+            ┌─────────────────┐                 ┌────────────────────┐
+            │   GNN Pathway   │                 │   Transformer      │
+            │   Processing    │                 │   Pathway          │
+            │   (Clinical)    │                 │   Processing       │
+            │   embeddings    │                 │   (PROSE+HLA)      │
+            └────────┬────────┘                 └────────┬───────────┘
+                     │                                  │
+                     └────────────────┬─────────────────┘
+                                      │
+                                      ▼
+                    ┌──────────────────────────────────────┐
+                    │  FUSION LAYER                        │
+                    │  (Combine dual pathways)             │
+                    │  Output: Disease probability logits  │
+                    └──────────────────────────────────────┘
+                                      │
+                    ┌──────────────────────┬──────────────────────┐
+                    │                      │                      │
+            ┌──────────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────────┐
+            │Raw Myositis      │ │Raw GBS       │ │Raw Lupus     │ │Raw Arthritis     │
+            │Logits            │ │Logits        │ │Logits        │ │Logits            │
+            │(0-100%)          │ │(0-100%)      │ │(0-100%)      │ │(0-100%)          │
+            └─────────┬────────┘ └──────┬───────┘ └──────┬───────┘ └────────┬─────────┘
+                      │                 │                 │                 │
+                      └─────────────────┴─────────────────┴─────────────────┘
+                                      │
+                                      ▼
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                        STAGE 2: CLINICAL CALIBRATION LAYER
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+                                  Raw Predictions
+                                    (from Stage 1)
+                                         │
+                    ┌────────────────────┴────────────────────┐
+                    │                                         │
+                    ▼                                         ▼
+        ┌─────────────────────────┐           ┌──────────────────────────┐
+        │  2a. BIOMARKER-SPECIFIC │           │  2d. CLINICAL VALIDATION │
+        │  DISTANCE ADJUSTMENT     │           │  RULES ENGINE            │
+        │                         │           │                         │
+        │ Apply Multiplicative     │           │ • Myositis: Jo1+ with    │
+        │ Adjustments based on     │           │   elevated CK, ESR/CRP   │
+        │ Pathognomonic Markers:   │           │ • GBS: elevated ESR,     │
+        │                         │           │   no muscle markers      │
+        │ • Jo-1 (×2.5 effect)    │           │ • Lupus: anti-dsDNA+,    │
+        │ • CK (×2.0 effect)      │           │   CRP/ESR, renal        │
+        │ • anti-dsDNA (×1.5)     │           │ • Arthritis: RF/CCP,    │
+        │                         │           │   ESR/CRP               │
+        │ Returns: Adjusted       │           │                         │
+        │ Distances               │           │ Returns: per-disease    │
+        │                         │           │ confidence scores       │
+        └────────┬────────────────┘           └────────────┬────────────┘
+                 │                                        │
+                 │                                        │
+                 ▼                                        ▼
+        ┌─────────────────────────┐           ┌──────────────────────────┐
+        │  2b. RECALCULATED       │           │ 2c. BIOMARKER BOOST      │
+        │  CONFIDENCE             │           │                         │
+        │                         │           │ Additional confidence    │
+        │ calibrated_conf =       │           │ adjustments for extreme  │
+        │ 1/(1 + adj_DM / adj_DG) │           │ biomarker elevation:     │
+        │                         │           │                         │
+        │ Returns: Calibrated     │           │ • If Jo-1 > 0.5:        │
+        │ Myositis/GBS/Lupus      │           │   boost += (Jo1-0.5)×0.35
+        │ Confidence              │           │ • If CK > 0.3:          │
+        │                         │           │   boost += (CK-0.3)×0.20│
+        │                         │           │                         │
+        │                         │           │ Returns: Boosted Final  │
+        │                         │           │ Confidence (max 0.85)   │
+        └────────┬────────────────┘           └────────────┬────────────┘
+                 │                                        │
+                 └──────────────────┬─────────────────────┘
+                                    │
+                                    ▼
+                    ┌──────────────────────────────────────┐
+                    │  2e. DECISION INTEGRATION            │
+                    │                                      │
+                    │  if extreme_biomarkers_detected      │
+                    │    final_conf = clinical_conf × 1.05│
+                    │    decision = "CLINICAL_BIOMARKER_   │
+                    │                DOMINANT"             │
+                    │  else                                │
+                    │    final_conf = model_conf × 0.7 +   │
+                    │                 clinical_conf × 0.3  │
+                    │    decision = "MODEL_CLINICAL_BLEND" │
+                    │                                      │
+                    └──────────────────────────────────────┘
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+        ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
+        │ Calibrated       │ │Clinical      │ │Decision Method:  │
+        │ Confidence       │ │Agreement     │ │CLINICAL_BIOMARKER
+        │ (0-100%)         │ │Score         │ │_DOMINANT or      │
+        │                  │ │(alignment)   │ │MODEL_CLINICAL_   │
+        │                  │ │              │ │BLEND             │
+        └──────────────────┘ └──────────────┘ └──────────────────┘
+                    │               │               │
+                    └───────────────┴───────────────┘
+                                    │
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                                    FINAL OUTPUT
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+                    ▼               ▼               ▼
+        ┌──────────────────┐ ┌──────────────┐ ┌──────────────────┐
+        │ Final Confidence │ │ Justification│ │ Deployment       │
+        │ Score (0-100%)   │ │ Evidence     │ │ Action:          │
+        │                  │ │              │ │                  │
+        │≥75%: HIGH RISK   │ │• Biomarkers  │ │ ≥75% → ALERT     │
+        │60-75%: MODERATE  │ │• Distances   │ │ 60-75% → MONITOR │
+        │<60%: LOW RISK    │ │• Rules Match │ │ <60% → REASSURE  │
+        └──────────────────┘ └──────────────┘ └──────────────────┘
+                    │               │               │
+                    └───────────────┴───────────────┘
+                                    │
+                                    ▼
+                            ┌────────────────┐
+                            │ CLINICAL ALERT │
+                            │CATEGORIZATION  │
+                            └────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                          STAGE 1: OPTION C MODEL ARCHITECTURE DETAILS
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Property                           │ Value              │ Description                             │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Model Name                          │ Option C           │ Dual-head attention transformer         │
+│ Model File                          │ focal_dualhead     │ models/focal_dualhead_final.pt         │
+│ File Size                           │ 6.3 MB             │ Pre-trained weights                    │
+│ Architecture                        │ Dual-Head          │ PROSE pathway + HLA pathway            │
+│ Hidden Dimension                    │ 256D               │ Attention layer dimension              │
+│ Attention Heads                     │ 8 heads            │ Multi-head self-attention              │
+│ Total Parameters                    │ 1,647,367          │ Trainable model parameters             │
+│                                     │                    │                                       │
+│ BASELINE PERFORMANCE (Test Set):    │                    │                                       │
+│ Overall AUC                         │ 0.7533             │ All diseases                           │
+│ Myositis AUC                        │ 0.7271             │ Immune-mediated disease detection     │
+│ GBS AUC                             │ 0.8224             │ Neurological complication detection   │
+│ Lupus AUC                           │ 0.6818             │ Systemic autoimmune detection        │
+│ Arthritis AUC                       │ 0.7821             │ Joint complication detection          │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                          STAGE 2: CLINICAL CALIBRATION PARAMETERS
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Parameter                          │ Value  │ Purpose                                             │
+├─────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ jo1_effect_multiplier               │ 2.5    │ Jo-1 specificity weight                            │
+│ ck_effect_multiplier                │ 2.0    │ CK elevation importance                            │
+│ anti_dsdna_multiplier               │ 1.5    │ anti-dsDNA adjustment strength                     │
+│ jo1_boost_factor                    │ 0.35   │ Strong Jo-1 signal confidence boost                │
+│ ck_boost_factor                     │ 0.20   │ High CK confidence boost                           │
+│ extreme_biomarker_threshold         │ 0.8    │ Threshold for clinical evidence dominance         │
+│ model_weight (typical cases)        │ 0.70   │ Model contribution to final decision               │
+│ clinical_weight (typical cases)     │ 0.30   │ Clinical contribution to final decision            │
+│ max_confidence_cap                  │ 0.85   │ Maximum confidence to retain uncertainty           │
+└─────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                     EXAMPLE FLOW: JO-1+ MYOSITIS CASE (OPTION C + CALIBRATION)
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+Input: Jo-1=0.65, CK=0.32, Patient demographics, HLA, PROSE embeddings, AF3 structures
+
+    ┌──────────────────────────────────┐
+    │ STAGE 1: OPTION C TRANSFORMER    │
+    ├──────────────────────────────────┤
+    │ GNN Clinical Head processes:      │
+    │ • Jo-1, CK, ESR, CRP, etc.       │
+    │ • Patient demographics            │
+    │ • Attention over biomarker        │
+    │   relationships (8 heads)         │
+    │                                  │
+    │ PROSE Head processes:             │
+    │ • Peptide embeddings              │
+    │ • HLA alleles                    │
+    │ • Structural attention            │
+    │                                  │
+    │ Fusion layer combines pathways    │
+    │                                  │
+    │ OUTPUT LOGITS:                    │
+    │ • Myositis logit: +0.62           │
+    │ • GBS logit: -0.45                │
+    │ • Lupus logit: -1.23              │
+    │                                  │
+    │ Raw Confidence: 65%  ← Better     │
+    │ (vs centroid-based 51%)           │
+    └──────────────────────────────────┘
+            │
+            ▼
+    ┌──────────────────────────────────┐
+    │ STAGE 2: CALIBRATION LAYER       │
+    ├──────────────────────────────────┤
+    │ 2a. Biomarker Distance Adj.:      │
+    │ Jo-1 = 0.65 → boost myositis      │
+    │                                  │
+    │ 2b. Recalculated Confidence       │
+    │                                  │
+    │ 2c. Biomarker Boost:              │
+    │ Jo-1 > 0.5: +0.15 boost           │
+    │                                  │
+    │ 2d. Clinical Validation Rules:    │
+    │ ✓ Jo-1+ positive                  │
+    │ ✓ CK elevated                     │
+    │ ✓ Clinical agreement: 88%         │
+    │                                  │
+    │ 2e. Decision Integration:         │
+    │ Extreme biomarkers detected →     │
+    │ Clinical dominance (×1.05)        │
+    └──────────────────────────────────┘
+            │
+            ▼
+    ┌──────────────────────────────────┐
+    │ FINAL OUTPUT                      │
+    ├──────────────────────────────────┤
+    │ Final Confidence: 79.2%           │
+    │ Clinical Agreement: 88%           │
+    │ Decision Method: CLINICAL_        │
+    │ BIOMARKER_DOMINANT                │
+    │ Action: ALERT (≥75%) ✓            │
+    └──────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+                              ARCHITECTURE ADVANTAGES
+════════════════════════════════════════════════════════════════════════════════════════════════════════
+
+  ✓ NEURAL FOUNDATION      → Option C transformer captures complex patterns via multi-head attention
+  ✓ DUAL PATHWAYS          → Separate GNN (clinical) + PROSE (peptide/HLA) processing
+  ✓ INTERPRETABLE FUSION   → Clinical calibration layer explainable after neural inference
+  ✓ CLINICALLY SOUND       → Stage 2 incorporates validated domain knowledge
+  ✓ MODULARITY             → Stage 1 (transformer) & Stage 2 (rules) independent evaluation
+  ✓ STRONG BASELINE        → Option C AUC 0.7533 provides high-confidence starting point
+  ✓ AUDITABILITY           → Clear separation of neural vs rule-based reasoning
+
+════════════════════════════════════════════════════════════════════════════════════════════════════════

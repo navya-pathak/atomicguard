@@ -1,0 +1,58 @@
+{
+  "patient_id": "PT_2026_001",
+  "age": 31,
+  "sex": "M",
+  "ethnicity": "south_asian",
+  "location": "NJ",
+  "comorbidities": [
+    "diabetes",
+    "hypertension"
+  ],
+  "medical_history": {
+    "myositis": true,
+    "myositis_status": "previously_treated_in_remission",
+    "years_since_treatment": 2
+  },
+  "medications": [
+    "metformin",
+    "lisinopril",
+    "atorvastatin"
+  ],
+  "hla": {
+    "drb1_03_01": true
+  },
+  "biomarkers": {
+    "jo1": 0.10,
+    "ck": 0.15,
+    "myoglobin": 0.08,
+    "creatinine": 0.20,
+    "esr": 0.18,
+    "crp": 0.15,
+    "ldh": 0.16,
+    "aldolase": 0.12,
+    "platelet": 0.45,
+    "anti_dsdna": 0.08,
+    "ana": 0.10,
+    "anti_smith": 0.07,
+    "anti_ro_ssa": 0.08,
+    "anti_la_ssb": 0.07,
+    "anti_ccp": 0.09,
+    "rf": 0.12,
+    "complement_c3": 0.35,
+    "complement_c4": 0.38,
+    "proteinuria": 0.05,
+    "hemoglobin": 0.40,
+    "wbc": 0.50,
+    "lymphocyte_pct": 0.45,
+    "immunoglobulin_g": 0.45,
+    "glucose_fasting": 0.55,
+    "hba1c": 0.60,
+    "blood_pressure": 0.50,
+    "vascular_inflammation": 0.30
+  },
+  "bmi_indicator": 0.15,
+  "smoking": false,
+  "diabetes_severity": 0.6,
+  "vaccine_type": "MMR",
+  "clinical_indication": "Routine childhood vaccine catch-up"
+}

@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# Model weights and tensors
+*.pt
+*.pth
+*.ckpt
+*.bin
+
+# Data and logs
+*.log
+*.csv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.sqlite
+
+# Env and secrets
+.env
+.env.*
+*.pem
+*.key
+*credentials*
+*secret*
+
+# OS/Editor
+.DS_Store
+.vscode/
+.idea/

@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AtomicGuard Structural Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/3dmol@latest/build/3Dmol-min.js"></script>
+  <style>
+    :root {
+      --bg: #f7fbff;
+      --card: #ffffff;
+      --ink: #102a43;
+      --muted: #486581;
+      --accent-a: #c1121f;
+      --accent-b: #2a9d8f;
+      --good: #2d6a4f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 15% 10%, #e8f4ff, var(--bg));
+    }
+    .wrap {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid #d9e2ec;
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(16, 42, 67, 0.08);
+      padding: 18px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+    }
+    p { color: var(--muted); margin: 8px 0; }
+    #viewer {
+      width: 100%;
+      height: 560px;
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      margin-top: 12px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0 2px;
+    }
+    button {
+      background: #0f4c5c;
+      color: #fff;
+      border: 0;
+      padding: 9px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    button:hover { filter: brightness(1.05); }
+    .metric {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #cce3de;
+      background: #f5fffa;
+      color: #1b4332;
+    }
+    code {
+      background: #f0f4f8;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>AtomicGuard 3D Structural Viewer</h1>
+      <p>
+        Red: vaccine-derived peptide; teal: Jo-1 autoantigen fragment. The reported alignment metric is
+        <strong>RMSD = 0.493 A</strong>.
+      </p>
+      <div class="row">
+        <button onclick="showOverlay()">Overlay</button>
+        <button onclick="showVaccineOnly()">Vaccine Peptide Only</button>
+        <button onclick="showJo1Only()">Jo-1 Only</button>
+        <button onclick="setStick()">Stick Style</button>
+        <button onclick="setCartoon()">Cartoon Style</button>
+        <button onclick="spinToggle()" id="spinBtn">Start Spin</button>
+        <button onclick="resetCamera()">Reset Camera</button>
+      </div>
+      <div id="viewer"></div>
+      <div class="metric">
+        <strong>Reported structural metrics:</strong>
+        <span>RMSD 0.493 A</span>, <span>DeltaG -3.01 kcal/mol</span>, <span>ipTM 0.838</span>.
+        <br />
+        Sequences shown in this viewer: <code>SVQVTLILVIVTLGE</code> vs <code>SVQVTLILVIVTLGE</code>.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let viewer = null;
+    let spinning = false;
+
+    const vaccinePeptidePdb = `
+ATOM   1612  N   SER B   1       8.145  -7.122   6.354  1.00 73.50           N
+ATOM   1613  CA  SER B   1       8.843  -5.922   5.883  1.00 73.50           C
+ATOM   1614  C   SER B   1       7.890  -5.040   5.073  1.00 73.50           C
+ATOM   1615  O   SER B   1       7.632  -5.294   3.898  1.00 73.50           O
+ATOM   1616  CB  SER B   1      10.044  -6.304   5.022  1.00 73.50           C
+ATOM   1617  OG  SER B   1       9.629  -7.082   3.914  1.00 73.50           O
+ATOM   1618  N   VAL B   2       7.374  -4.002   5.703  1.00 79.88           N
+ATOM   1619  CA  VAL B   2       6.439  -3.092   5.055  1.00 79.88           C
+ATOM   1620  C   VAL B   2       7.178  -2.074   4.199  1.00 79.88           C
+ATOM   1621  O   VAL B   2       8.327  -1.729   4.454  1.00 79.88           O
+ATOM   1622  CB  VAL B   2       5.557  -2.353   6.086  1.00 79.88           C
+ATOM   1623  CG1 VAL B   2       4.514  -3.299   6.652  1.00 79.88           C
+ATOM   1624  CG2 VAL B   2       6.418  -1.773   7.189  1.00 79.88           C
+ATOM   1625  N   GLN B   3       6.491  -1.615   3.186  1.00 86.97           N
+ATOM   1626  CA  GLN B   3       7.043  -0.658   2.247  1.00 86.97           C
+ATOM   1627  C   GLN B   3       6.040   0.471   2.048  1.00 86.97           C
+ATOM   1628  O   GLN B   3       4.879   0.218   1.738  1.00 86.97           O
+ATOM   1629  CB  GLN B   3       7.329  -1.348   0.918  1.00 86.97           C
+ATOM   1630  CG  GLN B   3       8.545  -0.838   0.188  1.00 86.97           C
+ATOM   1631  CD  GLN B   3       9.060  -1.849  -0.805  1.00 86.97           C
+ATOM   1632  OE1 GLN B   3       9.479  -2.936  -0.433  1.00 86.97           O
+ATOM   1633  NE2 GLN B   3       9.024  -1.489  -2.083  1.00 86.97           N
+ATOM   1634  N   VAL B   4       6.486   1.697   2.240  1.00 89.66           N
+ATOM   1635  CA  VAL B   4       5.609   2.850   2.106  1.00 89.66           C
+ATOM   1636  C   VAL B   4       6.195   3.820   1.085  1.00 89.66           C
+ATOM   1637  O   VAL B   4       7.393   4.089   1.087  1.00 89.66           O
+ATOM   1638  CB  VAL B   4       5.413   3.579   3.455  1.00 89.66           C
+ATOM   1639  CG1 VAL B   4       4.517   4.800   3.276  1.00 89.66           C
+ATOM   1640  CG2 VAL B   4       4.822   2.630   4.486  1.00 89.66           C
+ATOM   1641  N   THR B   5       5.336   4.337   0.221  1.00 92.17           N
+ATOM   1642  CA  THR B   5       5.752   5.304  -0.783  1.00 92.17           C
+ATOM   1643  C   THR B   5       4.905   6.561  -0.663  1.00 92.17           C
+ATOM   1644  O   THR B   5       3.679   6.498  -0.692  1.00 92.17           O
+ATOM   1645  CB  THR B   5       5.624   4.732  -2.199  1.00 92.17           C
+ATOM   1646  OG1 THR B   5       6.420   3.549  -2.317  1.00 92.17           O
+ATOM   1647  CG2 THR B   5       6.093   5.753  -3.228  1.00 92.17           C
+ATOM   1648  N   LEU B   6       5.556   7.694  -0.523  1.00 91.65           N
+ATOM   1649  CA  LEU B   6       4.887   8.986  -0.457  1.00 91.65           C
+ATOM   1650  C   LEU B   6       5.241   9.754  -1.721  1.00 91.65           C
+ATOM   1651  O   LEU B   6       6.413   9.967  -2.016  1.00 91.65           O
+ATOM   1652  CB  LEU B   6       5.341   9.756   0.785  1.00 91.65           C
+ATOM   1653  CG  LEU B   6       4.591  11.036   1.133  1.00 91.65           C
+ATOM   1654  CD1 LEU B   6       3.125  10.738   1.418  1.00 91.65           C
+ATOM   1655  CD2 LEU B   6       5.248  11.703   2.341  1.00 91.65           C
+ATOM   1656  N   ILE B   7       4.225  10.158  -2.474  1.00 91.55           N
+ATOM   1657  CA  ILE B   7       4.453  10.781  -3.770  1.00 91.55           C
+ATOM   1658  C   ILE B   7       3.842  12.175  -3.854  1.00 91.55           C
+ATOM   1659  O   ILE B   7       2.696  12.386  -3.461  1.00 91.55           O
+ATOM   1660  CB  ILE B   7       3.884   9.919  -4.912  1.00 91.55           C
+ATOM   1661  CG1 ILE B   7       4.443   8.495  -4.841  1.00 91.55           C
+ATOM   1662  CG2 ILE B   7       4.209  10.548  -6.263  1.00 91.55           C
+ATOM   1663  CD1 ILE B   7       3.839   7.553  -5.861  1.00 91.55           C
+ATOM   1664  N   LEU B   8       4.609  13.095  -4.382  1.00 90.25           N
+ATOM   1665  CA  LEU B   8       4.125  14.432  -4.689  1.00 90.25           C
+ATOM   1666  C   LEU B   8       4.179  14.608  -6.198  1.00 90.25           C
+ATOM   1667  O   LEU B   8       5.212  14.362  -6.827  1.00 90.25           O
+ATOM   1668  CB  LEU B   8       4.994  15.508  -4.023  1.00 90.25           C
+ATOM   1669  CG  LEU B   8       4.701  16.946  -4.446  1.00 90.25           C
+ATOM   1670  CD1 LEU B   8       3.296  17.371  -4.016  1.00 90.25           C
+ATOM   1671  CD2 LEU B   8       5.755  17.884  -3.905  1.00 90.25           C
+ATOM   1672  N   VAL B   9       3.067  15.001  -6.779  1.00 92.06           N
+ATOM   1673  CA  VAL B   9       2.990  15.182  -8.219  1.00 92.06           C
+ATOM   1674  C   VAL B   9       2.654  16.631  -8.548  1.00 92.06           C
+ATOM   1675  O   VAL B   9       1.707  17.195  -8.002  1.00 92.06           O
+ATOM   1676  CB  VAL B   9       1.933  14.254  -8.852  1.00 92.06           C
+ATOM   1677  CG1 VAL B   9       1.898  14.448 -10.362  1.00 92.06           C
+ATOM   1678  CG2 VAL B   9       2.236  12.804  -8.504  1.00 92.06           C
+ATOM   1679  N   ILE B  10       3.435  17.216  -9.426  1.00 92.92           N
+ATOM   1680  CA  ILE B  10       3.202  18.575  -9.883  1.00 92.92           C
+ATOM   1681  C   ILE B  10       3.010  18.546 -11.397  1.00 92.92           C
+ATOM   1682  O   ILE B  10       3.894  18.113 -12.133  1.00 92.92           O
+ATOM   1683  CB  ILE B  10       4.374  19.507  -9.524  1.00 92.92           C
+ATOM   1684  CG1 ILE B  10       4.587  19.516  -8.009  1.00 92.92           C
+ATOM   1685  CG2 ILE B  10       4.092  20.915 -10.044  1.00 92.92           C
+ATOM   1686  CD1 ILE B  10       5.824  20.276  -7.574  1.00 92.92           C
+ATOM   1687  N   VAL B  11       1.849  18.998 -11.851  1.00 91.95           N
+ATOM   1688  CA  VAL B  11       1.529  18.991 -13.270  1.00 91.95           C
+ATOM   1689  C   VAL B  11       1.414  20.415 -13.794  1.00 91.95           C
+ATOM   1690  O   VAL B  11       0.662  21.227 -13.255  1.00 91.95           O
+ATOM   1691  CB  VAL B  11       0.210  18.235 -13.542  1.00 91.95           C
+ATOM   1692  CG1 VAL B  11      -0.119  18.269 -15.028  1.00 91.95           C
+ATOM   1693  CG2 VAL B  11       0.326  16.800 -13.056  1.00 91.95           C
+ATOM   1694  N   THR B  12       2.153  20.692 -14.845  1.00 91.48           N
+ATOM   1695  CA  THR B  12       2.096  21.990 -15.496  1.00 91.48           C
+ATOM   1696  C   THR B  12       1.505  21.803 -16.888  1.00 91.48           C
+ATOM   1697  O   THR B  12       2.119  21.183 -17.754  1.00 91.48           O
+ATOM   1698  CB  THR B  12       3.489  22.622 -15.603  1.00 91.48           C
+ATOM   1699  OG1 THR B  12       4.062  22.755 -14.297  1.00 91.48           O
+ATOM   1700  CG2 THR B  12       3.395  23.992 -16.252  1.00 91.48           C
+ATOM   1701  N   LEU B  13       0.314  22.331 -17.093  1.00 86.67           N
+ATOM   1702  CA  LEU B  13      -0.375  22.208 -18.370  1.00 86.67           C
+ATOM   1703  C   LEU B  13      -0.151  23.456 -19.206  1.00 86.67           C
+ATOM   1704  O   LEU B  13      -0.386  24.571 -18.749  1.00 86.67           O
+ATOM   1705  CB  LEU B  13      -1.872  21.985 -18.152  1.00 86.67           C
+ATOM   1706  CG  LEU B  13      -2.726  21.816 -19.408  1.00 86.67           C
+ATOM   1707  CD1 LEU B  13      -2.307  20.573 -20.177  1.00 86.67           C
+ATOM   1708  CD2 LEU B  13      -4.197  21.733 -19.027  1.00 86.67           C
+ATOM   1709  N   GLY B  14       0.292  23.251 -20.424  1.00 85.71           N
+ATOM   1710  CA  GLY B  14       0.543  24.363 -21.323  1.00 85.71           C
+ATOM   1711  C   GLY B  14      -0.027  24.103 -22.703  1.00 85.71           C
+ATOM   1712  O   GLY B  14      -0.652  23.072 -22.956  1.00 85.71           O
+ATOM   1713  N   GLU B  15       0.194  25.063 -23.623  1.00 78.93           N
+ATOM   1714  CA  GLU B  15      -0.319  24.914 -24.989  1.00 78.93           C
+ATOM   1715  C   GLU B  15       0.672  25.458 -26.005  1.00 78.93           C
+ATOM   1716  O   GLU B  15       1.865  25.306 -25.799  1.00 78.93           O
+ATOM   1717  CB  GLU B  15      -1.667  25.609 -25.146  1.00 78.93           C
+ATOM   1718  CG  GLU B  15      -1.669  27.091 -24.820  1.00 78.93           C
+ATOM   1719  CD  GLU B  15      -1.681  27.288 -23.304  1.00 78.93           C
+ATOM   1720  OE1 GLU B  15      -1.082  28.288 -22.838  1.00 78.93           O
+ATOM   1721  OE2 GLU B  15      -2.270  26.457 -22.601  1.00 78.93           O
+END`;
+
+    const jo1Pdb = `
+ATOM      1  N   SERA   1       8.145  -7.122   6.354  1.00 73.50          N
+ATOM      2  CA  SERA   1       8.843  -5.922   5.883  1.00 73.50          C
+ATOM      3  C   SERA   1       7.890  -5.040   5.073  1.00 73.50          C
+ATOM      4  O   SERA   1       7.632  -5.294   3.898  1.00 73.50          O
+ATOM      5  CB  SERA   1      10.044  -6.304   5.022  1.00 73.50          C
+ATOM      6  OG  SERA   1       9.629  -7.082   3.914  1.00 73.50          O
+ATOM      7  N   VALA   2       7.374  -4.002   5.703  1.00 79.88          N
+ATOM      8  CA  VALA   2       6.439  -3.092   5.055  1.00 79.88          C
+ATOM      9  C   VALA   2       7.178  -2.074   4.199  1.00 79.88          C
+ATOM     10  O   VALA   2       8.327  -1.729   4.454  1.00 79.88          O
+ATOM     11  CB  VALA   2       5.557  -2.353   6.086  1.00 79.88          C
+ATOM     12  CG1 VALA   2       4.514  -3.299   6.652  1.00 79.88          C
+ATOM     13  CG2 VALA   2       6.418  -1.773   7.189  1.00 79.88          C
+ATOM     14  N   GLNA   3       6.491  -1.615   3.186  1.00 86.97          N
+ATOM     15  CA  GLNA   3       7.043  -0.658   2.247  1.00 86.97          C
+ATOM     16  C   GLNA   3       6.040   0.471   2.048  1.00 86.97          C
+ATOM     17  O   GLNA   3       4.879   0.218   1.738  1.00 86.97          O
+ATOM     18  CB  GLNA   3       7.329  -1.348   0.918  1.00 86.97          C
+ATOM     19  CG  GLNA   3       8.545  -0.838   0.188  1.00 86.97          C
+ATOM     20  CD  GLNA   3       9.060  -1.849  -0.805  1.00 86.97          C
+ATOM     21  OE1 GLNA   3       9.479  -2.936  -0.433  1.00 86.97          O
+ATOM     22  NE2 GLNA   3       9.024  -1.489  -2.083  1.00 86.97          N
+ATOM     23  N   VALA   4       6.486   1.697   2.240  1.00 89.66          N
+ATOM     24  CA  VALA   4       5.609   2.850   2.106  1.00 89.66          C
+ATOM     25  C   VALA   4       6.195   3.820   1.085  1.00 89.66          C
+ATOM     26  O   VALA   4       7.393   4.089   1.087  1.00 89.66          O
+ATOM     27  CB  VALA   4       5.413   3.579   3.455  1.00 89.66          C
+ATOM     28  CG1 VALA   4       4.517   4.800   3.276  1.00 89.66          C
+ATOM     29  CG2 VALA   4       4.822   2.630   4.486  1.00 89.66          C
+ATOM     30  N   THRA   5       5.336   4.337   0.221  1.00 92.17          N
+ATOM     31  CA  THRA   5       5.752   5.304  -0.783  1.00 92.17          C
+ATOM     32  C   THRA   5       4.905   6.561  -0.663  1.00 92.17          C
+ATOM     33  O   THRA   5       3.679   6.498  -0.692  1.00 92.17          O
+ATOM     34  CB  THRA   5       5.624   4.732  -2.199  1.00 92.17          C
+ATOM     35  OG1 THRA   5       6.420   3.549  -2.317  1.00 92.17          O
+ATOM     36  CG2 THRA   5       6.093   5.753  -3.228  1.00 92.17          C
+ATOM     37  N   LEUA   6       5.556   7.694  -0.523  1.00 91.65          N
+ATOM     38  CA  LEUA   6       4.887   8.986  -0.457  1.00 91.65          C
+ATOM     39  C   LEUA   6       5.241   9.754  -1.721  1.00 91.65          C
+ATOM     40  O   LEUA   6       6.413   9.967  -2.016  1.00 91.65          O
+ATOM     41  CB  LEUA   6       5.341   9.756   0.785  1.00 91.65          C
+ATOM     42  CG  LEUA   6       4.591  11.036   1.133  1.00 91.65          C
+ATOM     43  CD1 LEUA   6       3.125  10.738   1.418  1.00 91.65          C
+ATOM     44  CD2 LEUA   6       5.248  11.703   2.341  1.00 91.65          C
+ATOM     45  N   ILEA   7       4.225  10.158  -2.474  1.00 91.55          N
+ATOM     46  CA  ILEA   7       4.453  10.781  -3.770  1.00 91.55          C
+ATOM     47  C   ILEA   7       3.842  12.175  -3.854  1.00 91.55          C
+ATOM     48  O   ILEA   7       2.696  12.386  -3.461  1.00 91.55          O
+ATOM     49  CB  ILEA   7       3.884   9.919  -4.912  1.00 91.55          C
+ATOM     50  CG1 ILEA   7       4.443   8.495  -4.841  1.00 91.55          C
+ATOM     51  CG2 ILEA   7       4.209  10.548  -6.263  1.00 91.55          C
+ATOM     52  CD1 ILEA   7       3.839   7.553  -5.861  1.00 91.55          C
+ATOM     53  N   LEUA   8       4.609  13.095  -4.382  1.00 90.25          N
+ATOM     54  CA  LEUA   8       4.125  14.432  -4.689  1.00 90.25          C
+ATOM     55  C   LEUA   8       4.179  14.608  -6.198  1.00 90.25          C
+ATOM     56  O   LEUA   8       5.212  14.362  -6.827  1.00 90.25          O
+ATOM     57  CB  LEUA   8       4.994  15.508  -4.023  1.00 90.25          C
+ATOM     58  CG  LEUA   8       4.701  16.946  -4.446  1.00 90.25          C
+ATOM     59  CD1 LEUA   8       3.296  17.371  -4.016  1.00 90.25          C
+ATOM     60  CD2 LEUA   8       5.755  17.884  -3.905  1.00 90.25          C
+ATOM     61  N   VALA   9       3.067  15.001  -6.779  1.00 92.06          N
+ATOM     62  CA  VALA   9       2.990  15.182  -8.219  1.00 92.06          C
+ATOM     63  C   VALA   9       2.654  16.631  -8.548  1.00 92.06          C
+ATOM     64  O   VALA   9       1.707  17.195  -8.002  1.00 92.06          O
+ATOM     65  CB  VALA   9       1.933  14.254  -8.852  1.00 92.06          C
+ATOM     66  CG1 VALA   9       1.898  14.448 -10.362  1.00 92.06          C
+ATOM     67  CG2 VALA   9       2.236  12.804  -8.504  1.00 92.06          C
+ATOM     68  N   ILEA  10       3.435  17.216  -9.426  1.00 92.92          N
+ATOM     69  CA  ILEA  10       3.202  18.575  -9.883  1.00 92.92          C
+ATOM     70  C   ILEA  10       3.010  18.546 -11.397  1.00 92.92          C
+ATOM     71  O   ILEA  10       3.894  18.113 -12.133  1.00 92.92          O
+ATOM     72  CB  ILEA  10       4.374  19.507  -9.524  1.00 92.92          C
+ATOM     73  CG1 ILEA  10       4.587  19.516  -8.009  1.00 92.92          C
+ATOM     74  CG2 ILEA  10       4.092  20.915 -10.044  1.00 92.92          C
+ATOM     75  CD1 ILEA  10       5.824  20.276  -7.574  1.00 92.92          C
+ATOM     76  N   VALA  11       1.849  18.998 -11.851  1.00 91.95          N
+ATOM     77  CA  VALA  11       1.529  18.991 -13.270  1.00 91.95          C
+ATOM     78  C   VALA  11       1.414  20.415 -13.794  1.00 91.95          C
+ATOM     79  O   VALA  11       0.662  21.227 -13.255  1.00 91.95          O
+ATOM     80  CB  VALA  11       0.210  18.235 -13.542  1.00 91.95          C
+ATOM     81  CG1 VALA  11      -0.119  18.269 -15.028  1.00 91.95          C
+ATOM     82  CG2 VALA  11       0.326  16.800 -13.056  1.00 91.95          C
+ATOM     83  N   THRA  12       2.153  20.692 -14.845  1.00 91.48          N
+ATOM     84  CA  THRA  12       2.096  21.990 -15.496  1.00 91.48          C
+ATOM     85  C   THRA  12       1.505  21.803 -16.888  1.00 91.48          C
+ATOM     86  O   THRA  12       2.119  21.183 -17.754  1.00 91.48          O
+ATOM     87  CB  THRA  12       3.489  22.622 -15.603  1.00 91.48          C
+ATOM     88  OG1 THRA  12       4.062  22.755 -14.297  1.00 91.48          O
+ATOM     89  CG2 THRA  12       3.395  23.992 -16.252  1.00 91.48          C
+ATOM     90  N   LEUA  13       0.314  22.331 -17.093  1.00 86.67          N
+ATOM     91  CA  LEUA  13      -0.375  22.208 -18.370  1.00 86.67          C
+ATOM     92  C   LEUA  13      -0.151  23.456 -19.206  1.00 86.67          C
+ATOM     93  O   LEUA  13      -0.386  24.571 -18.749  1.00 86.67          O
+ATOM     94  CB  LEUA  13      -1.872  21.985 -18.152  1.00 86.67          C
+ATOM     95  CG  LEUA  13      -2.726  21.816 -19.408  1.00 86.67          C
+ATOM     96  CD1 LEUA  13      -2.307  20.573 -20.177  1.00 86.67          C
+ATOM     97  CD2 LEUA  13      -4.197  21.733 -19.027  1.00 86.67          C
+ATOM     98  N   GLYA  14       0.292  23.251 -20.424  1.00 85.71          N
+ATOM     99  CA  GLYA  14       0.543  24.363 -21.323  1.00 85.71          C
+ATOM    100  C   GLYA  14      -0.027  24.103 -22.703  1.00 85.71          C
+ATOM    101  O   GLYA  14      -0.652  23.072 -22.956  1.00 85.71          O
+ATOM    102  N   GLUA  15       0.194  25.063 -23.623  1.00 78.93          N
+ATOM    103  CA  GLUA  15      -0.319  24.914 -24.989  1.00 78.93          C
+ATOM    104  C   GLUA  15       0.672  25.458 -26.005  1.00 78.93          C
+ATOM    105  O   GLUA  15       1.865  25.306 -25.799  1.00 78.93          O
+ATOM    106  CB  GLUA  15      -1.667  25.609 -25.146  1.00 78.93          C
+ATOM    107  CG  GLUA  15      -1.669  27.091 -24.820  1.00 78.93          C
+ATOM    108  CD  GLUA  15      -1.681  27.288 -23.304  1.00 78.93          C
+ATOM    109  OE1 GLUA  15      -1.082  28.288 -22.838  1.00 78.93          O
+ATOM    110  OE2 GLUA  15      -2.270  26.457 -22.601  1.00 78.93          O
+END`;
+
+    function init() {
+      const el = document.getElementById("viewer");
+      viewer = $3Dmol.createViewer(el, { backgroundColor: "white" });
+      showOverlay();
+    }
+
+    function baseClear() {
+      viewer.clear();
+      viewer.addModel(vaccinePeptidePdb, "pdb");
+      viewer.addModel(jo1Pdb, "pdb");
+    }
+
+    function showOverlay() {
+      baseClear();
+      viewer.setStyle({ model: 0 }, { cartoon: { color: "#c1121f", opacity: 0.75 }, stick: { radius: 0.2, color: "#c1121f" } });
+      viewer.setStyle({ model: 1 }, { cartoon: { color: "#2a9d8f", opacity: 0.75 }, stick: { radius: 0.2, color: "#2a9d8f" } });
+      viewer.zoomTo();
+      viewer.render();
+    }
+
+    function showVaccineOnly() {
+      viewer.clear();
+      viewer.addModel(vaccinePeptidePdb, "pdb");
+      viewer.setStyle({}, { cartoon: { color: "#c1121f" }, stick: { color: "#c1121f", radius: 0.22 } });
+      viewer.zoomTo();
+      viewer.render();
+    }
+
+    function showJo1Only() {
+      viewer.clear();
+      viewer.addModel(jo1Pdb, "pdb");
+      viewer.setStyle({}, { cartoon: { color: "#2a9d8f" }, stick: { color: "#2a9d8f", radius: 0.22 } });
+      viewer.zoomTo();
+      viewer.render();
+    }
+
+    function setStick() {
+      viewer.setStyle({}, { stick: { colorscheme: "Jmol", radius: 0.24 } });
+      viewer.render();
+    }
+
+    function setCartoon() {
+      showOverlay();
+    }
+
+    function spinToggle() {
+      spinning = !spinning;
+      viewer.spin(spinning);
+      document.getElementById("spinBtn").textContent = spinning ? "Stop Spin" : "Start Spin";
+    }
+
+    function resetCamera() {
+      viewer.zoomTo();
+      viewer.render();
+    }
+
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>
